@@ -19,4 +19,13 @@ export type EventStore = {
   list(filter?: EventFilter): Promise<StoredEvent[]>;
   recordDeadLetter(eventId: string, reason: string): Promise<void>;
   listDeadLetters(): Promise<{ eventId: string; reason: string; createdAt: Date }[]>;
+  /**
+   * Reset events stuck in 'processing' back to 'pending'.
+   * Call once at process startup — any event still 'processing' from before
+   * this process started was abandoned by a previous crashed worker.
+   * @param olderThan  Only reset events whose createdAt is before this timestamp.
+   *                   Pass `new Date()` on startup to recover all stuck events.
+   * @returns Number of events recovered.
+   */
+  recoverStuck(olderThan: Date): Promise<number>;
 };

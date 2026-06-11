@@ -49,6 +49,25 @@ function rowToEvent(row: EventRow): StoredEvent {
 }
 
 /**
+ * Minimal SQL parameter builder for PostgreSQL ($1, $2, …).
+ * Returns a helper that accumulates values and returns the correct placeholder.
+ *
+ * Usage:
+ *   const [params, p] = makeParams();
+ *   sql = `SELECT * FROM t WHERE a = ${p(1)} AND b = ${p('x')}`;
+ *   // sql  → "SELECT * FROM t WHERE a = $1 AND b = $2"
+ *   // params → [1, 'x']
+ */
+function makeParams(): [unknown[], (value: unknown) => string] {
+  const params: unknown[] = [];
+  const p = (value: unknown): string => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  return [params, p];
+}
+
+/**
  * PostgreSQL event store. Uses FOR UPDATE SKIP LOCKED so multiple consumers
  * can claim events concurrently without double-processing.
  */
@@ -120,37 +139,39 @@ export class PostgresEventStore implements EventStore {
   }
 
   async update(id: string, patch: EventUpdate): Promise<void> {
+    const [params, p] = makeParams();
+    const idPlaceholder = p(id); // always $1
     const sets: string[] = [];
-    const params: unknown[] = [id];
-    const push = (column: string, value: unknown): void => {
-      params.push(value);
-      sets.push(`${column} = $${params.length}`);
-    };
-    if (patch.status !== undefined) push('status', patch.status);
-    if (patch.attempts !== undefined) push('attempts', patch.attempts);
-    if ('lastError' in patch) push('last_error', patch.lastError ?? null);
-    if ('nextAttemptAt' in patch) push('next_attempt_at', patch.nextAttemptAt ?? null);
-    if ('processedAt' in patch) push('processed_at', patch.processedAt ?? null);
+
+    if (patch.status !== undefined) sets.push(`status = ${p(patch.status)}`);
+    if (patch.attempts !== undefined) sets.push(`attempts = ${p(patch.attempts)}`);
+    if ('lastError' in patch) sets.push(`last_error = ${p(patch.lastError ?? null)}`);
+    if ('nextAttemptAt' in patch) sets.push(`next_attempt_at = ${p(patch.nextAttemptAt ?? null)}`);
+    if ('processedAt' in patch) sets.push(`processed_at = ${p(patch.processedAt ?? null)}`);
+
     if (sets.length === 0) return;
-    await this.sql.query(`UPDATE rota_events SET ${sets.join(', ')} WHERE id = $1`, params);
+    await this.sql.query(
+      `UPDATE rota_events SET ${sets.join(', ')} WHERE id = ${idPlaceholder}`,
+      params,
+    );
   }
 
   async list(filter: EventFilter = {}): Promise<StoredEvent[]> {
+    const [params, p] = makeParams();
     const wheres: string[] = [];
-    const params: unknown[] = [];
-    const where = (clause: string, value: unknown): void => {
-      params.push(value);
-      wheres.push(clause.replace('?', `$${params.length}`));
-    };
-    if (filter.type !== undefined) where('type = ?', filter.type);
-    if (filter.status !== undefined) where('status = ?', filter.status);
-    if (filter.correlationId !== undefined) where('correlation_id = ?', filter.correlationId);
-    params.push(filter.limit ?? 100);
+
+    if (filter.type !== undefined) wheres.push(`type = ${p(filter.type)}`);
+    if (filter.status !== undefined) wheres.push(`status = ${p(filter.status)}`);
+    if (filter.correlationId !== undefined) wheres.push(`correlation_id = ${p(filter.correlationId)}`);
+
+    const whereClause = wheres.length > 0 ? `WHERE ${wheres.join(' AND ')}` : '';
+    const limitPlaceholder = p(filter.limit ?? 100);
+
     const result = await this.sql.query<EventRow>(
       `SELECT * FROM rota_events
-       ${wheres.length > 0 ? `WHERE ${wheres.join(' AND ')}` : ''}
+       ${whereClause}
        ORDER BY created_at DESC
-       LIMIT $${params.length}`,
+       LIMIT ${limitPlaceholder}`,
       params,
     );
     return result.rows.map(rowToEvent);
@@ -174,5 +195,22 @@ export class PostgresEventStore implements EventStore {
       reason: row.reason,
       createdAt: toDate(row.created_at),
     }));
+  }
+
+  async recoverStuck(olderThan: Date): Promise<number> {
+    const result = await this.sql.query<{ count: string }>(
+      `WITH recovered AS (
+         UPDATE rota_events
+         SET status = 'pending',
+             processed_at = NULL
+         WHERE status = 'processing'
+           AND created_at <= $1
+         RETURNING id
+       )
+       SELECT COUNT(*) AS count FROM recovered`,
+      [olderThan],
+    );
+    const row = result.rows[0];
+    return row !== undefined ? Number(row.count) : 0;
   }
 }

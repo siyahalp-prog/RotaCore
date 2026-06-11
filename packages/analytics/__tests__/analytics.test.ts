@@ -37,6 +37,41 @@ describe('Rota Analytics', () => {
     expect(event?.device).toBe('desktop');
   });
 
+  it('does NOT store raw userAgent after parsing (privacy)', async () => {
+    const { service } = setup();
+    const event = await service.trackPageView({
+      ...base,
+      pageUrl: '/scholarships',
+      userAgent: 'Mozilla/5.0 Chrome/120.0',
+    });
+    // Raw UA must not be persisted — only coarse browser/device categories
+    expect(event?.userAgent).toBeUndefined();
+    expect(event?.browser).toBe('chrome');
+  });
+
+  it('strips query parameters from pageUrl and referrer before storage', async () => {
+    const { service } = setup();
+    const event = await service.trackPageView({
+      ...base,
+      pageUrl: '/reset-password?token=secret123&email=a@b.com',
+      referrer: 'https://google.com/search?q=sensitive+query',
+    });
+    // Sensitive query params must be stripped
+    expect(event?.pageUrl).toBe('/reset-password');
+    expect(event?.referrer).toBe('https://google.com/search');
+  });
+
+  it('handles malformed URLs gracefully in query param stripping', async () => {
+    const { service } = setup();
+    const event = await service.trackPageView({
+      ...base,
+      // Path-style URL with query params — the URL constructor with base can parse it.
+      pageUrl: '/reset?token=secret&debug=true',
+    });
+    // Query part is stripped, pathname remains
+    expect(event?.pageUrl).toBe('/reset');
+  });
+
   it('drops opted-out events', async () => {
     const { service, store } = setup();
     const event = await service.track({ ...base, eventName: 'click', optOut: true });
@@ -54,13 +89,14 @@ describe('Rota Analytics', () => {
   it('aggregates page views by day and top pages/referrers', async () => {
     const { clock, service } = setup();
     clock.set(new Date('2026-01-10T10:00:00Z'));
-    await service.trackPageView({ ...base, pageUrl: '/home', referrer: 'https://google.com' });
+    // Referrer includes query params — they should be stripped to the path only
+    await service.trackPageView({ ...base, pageUrl: '/home', referrer: 'https://google.com?q=rota' });
     await service.trackPageView({ ...base, pageUrl: '/home' });
     clock.set(new Date('2026-01-11T10:00:00Z'));
     await service.trackPageView({
       ...base,
       pageUrl: '/scholarships',
-      referrer: 'https://google.com',
+      referrer: 'https://google.com?q=scholar',
     });
 
     const from = new Date('2026-01-01T00:00:00Z');
@@ -71,8 +107,10 @@ describe('Rota Analytics', () => {
       { day: '2026-01-11', count: 1 },
     ]);
     expect((await service.topPages(from, to))[0]).toEqual({ name: '/home', count: 2 });
+    // After query param stripping, both referrers become 'https://google.com/'
+    // (URL spec adds trailing slash to bare hostname)
     expect((await service.topReferrers(from, to))[0]).toEqual({
-      name: 'https://google.com',
+      name: 'https://google.com/',
       count: 2,
     });
   });

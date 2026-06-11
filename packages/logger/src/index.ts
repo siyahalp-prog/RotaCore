@@ -15,6 +15,7 @@ const LEVEL_WEIGHT: Record<LogLevel, number> = {
 };
 
 const DEFAULT_REDACT_KEYS = [
+  // Authentication / credentials
   'password',
   'token',
   'secret',
@@ -25,6 +26,26 @@ const DEFAULT_REDACT_KEYS = [
   'access_token',
   'refreshtoken',
   'refresh_token',
+  'cookie',
+  'session',
+  'sessionid',
+  'session_id',
+  // PII — GDPR / CCPA / PCI-DSS
+  'email',
+  'email_address',
+  'phone',
+  'phone_number',
+  'mobile',
+  'creditcard',
+  'credit_card',
+  'cardnumber',
+  'card_number',
+  'cvv',
+  'ssn',
+  'national_id',
+  'ip',
+  'ip_address',
+  'ipaddress',
 ];
 
 export type Logger = {

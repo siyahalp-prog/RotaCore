@@ -12,6 +12,10 @@
     "@rota-core/core": "workspace:*",
     "@rota-core/events": "workspace:*",
     "@rota-core/logger": "workspace:*",
-    "@rota-core/types": "workspace:*"
+    "@rota-core/types": "workspace:*",
+    "nodemailer": "^8.0.10"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.0"
   }
 }

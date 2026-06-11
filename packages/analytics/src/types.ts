@@ -2,12 +2,19 @@ export type AnalyticsEvent = {
   id: string;
   /** 'page_view' for page views, otherwise the custom event name. */
   eventName: string;
+  /** Page path only — query parameters are stripped before storage. */
   pageUrl?: string | undefined;
+  /** Referrer path only — query parameters are stripped before storage. */
   referrer?: string | undefined;
   eventProperties?: Record<string, unknown> | undefined;
   sessionId: string;
   visitorId: string;
   userId?: string | undefined;
+  /**
+   * @deprecated Raw user agent is no longer stored after parsing.
+   * Kept in the type for backward compatibility with existing data only.
+   * Use `browser` and `device` fields instead.
+   */
   userAgent?: string | undefined;
   browser?: string | undefined;
   device?: string | undefined;

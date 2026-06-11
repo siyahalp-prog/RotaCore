@@ -33,7 +33,7 @@ import {
   LogIngestion,
 } from '@rota-core/monitoring';
 import { FeatureFlagClient, InMemoryFlagStore, type FlagStore } from '@rota-core/feature-flags';
-import { WorkflowEngine } from '@rota-core/workflows';
+import { WorkflowEngine, InMemoryWorkflowStore, type WorkflowStore } from '@rota-core/workflows';
 
 export type RotaCoreOptions = {
   serviceName?: string;
@@ -44,6 +44,8 @@ export type RotaCoreOptions = {
   analyticsStore?: AnalyticsStore;
   searchAdapter?: SearchAdapter;
   flagStore?: FlagStore;
+  /** Persistent store for workflow definitions and run history. Defaults to in-memory. */
+  workflowStore?: WorkflowStore;
   emailProvider?: EmailProvider;
   resolveEmail?: (userId: string) => Promise<string | null>;
   /** Wire default ecosystem event → notification handlers. Default: true. */
@@ -85,7 +87,8 @@ export function createRotaCore(options: RotaCoreOptions = {}) {
   alerts.addChannel(new ConsoleAlertChannel(logger));
 
   const flags = new FeatureFlagClient(options.flagStore ?? new InMemoryFlagStore());
-  const workflows = new WorkflowEngine({ logger });
+  const workflowStore = options.workflowStore ?? new InMemoryWorkflowStore();
+  const workflows = new WorkflowEngine({ logger, store: workflowStore });
 
   if (options.registerDefaultNotificationHandlers !== false) {
     registerNotificationEventHandlers(consumer, notifications);
@@ -100,6 +103,24 @@ export function createRotaCore(options: RotaCoreOptions = {}) {
     monitoring: { health, errors, latency, logIngestion, alerts },
     flags,
     workflows,
+    /**
+     * Optional async initialisation — call once at startup, before polling begins.
+     *
+     * 1. Resets events stuck in 'processing' from a previous crashed run.
+     * 2. Loads persisted workflow definitions from the store into the engine.
+     *
+     * Safe to skip in tests (in-memory stores have nothing to recover).
+     */
+    async initialize(): Promise<void> {
+      const recovered = await eventStore.recoverStuck(new Date());
+      if (recovered > 0) {
+        logger.warn(`Recovered ${recovered} stuck event(s) from previous run`);
+      }
+      const loaded = await workflows.loadFromStore();
+      if (loaded > 0) {
+        logger.info(`Loaded ${loaded} workflow definition(s) from store`);
+      }
+    },
   };
 }
 

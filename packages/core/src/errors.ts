@@ -59,3 +59,10 @@ export class ForbiddenError extends RotaError {
     this.name = 'ForbiddenError';
   }
 }
+
+export class RateLimitError extends RotaError {
+  constructor(message = 'Too many requests. Please slow down.') {
+    super('RATE_LIMITED', message, { statusCode: 429 });
+    this.name = 'RateLimitError';
+  }
+}

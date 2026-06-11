@@ -7,6 +7,19 @@ export const baseEnvSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error', 'silent']).default('info'),
   DATABASE_URL: z.string().url().optional(),
   REDIS_URL: z.string().url().optional(),
+  /**
+   * Secret bearer token required to access /admin/* routes.
+   * Must be set in production. When undefined (local dev), admin routes
+   * remain accessible without auth so developers can use them freely.
+   * Generate with: openssl rand -hex 32
+   */
+  ADMIN_TOKEN: z.string().min(16).optional(),
+  /**
+   * Allowed CORS origin for browser-facing endpoints (/track, /track.js).
+   * Set to your product domain(s) in production, e.g. 'https://rotaglobal.com'.
+   * Defaults to '*' (all origins) when not set — safe only in development.
+   */
+  CORS_ORIGIN: z.string().optional(),
 });
 
 export type BaseEnv = z.infer<typeof baseEnvSchema>;

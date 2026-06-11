@@ -20,6 +20,29 @@ import type {
 
 export const PAGE_VIEW_EVENT = 'page_view';
 
+/**
+ * Strip query parameters and fragments from a URL.
+ * Accepts both full URLs (https://...) and path-only strings (/path?q=1).
+ * On parse failure, strips everything after '?' as a safe fallback.
+ *
+ * Privacy rationale: query parameters frequently carry sensitive data
+ * (search terms, reset tokens, session identifiers, email addresses).
+ */
+function stripQueryParams(url: string | undefined): string | undefined {
+  if (url === undefined || url === '') return url;
+  try {
+    const base = url.startsWith('http') ? undefined : 'http://localhost';
+    const parsed = base !== undefined ? new URL(url, base) : new URL(url);
+    // For path-only inputs return just the pathname; for full URLs keep origin+path.
+    return url.startsWith('http')
+      ? `${parsed.protocol}//${parsed.host}${parsed.pathname}`
+      : parsed.pathname;
+  } catch {
+    // Graceful degradation: strip from '?' onward
+    return url.split('?')[0];
+  }
+}
+
 export const trackInputSchema = z.object({
   eventName: z.string().min(1).max(128),
   pageUrl: z.string().max(2048).optional(),
@@ -60,13 +83,17 @@ export class AnalyticsService {
     const event: AnalyticsEvent = {
       id: newId(),
       eventName: data.eventName,
-      pageUrl: data.pageUrl,
-      referrer: data.referrer,
+      // Strip query parameters before storage — they frequently contain PII
+      // (search terms, reset tokens, session IDs, email addresses in URLs).
+      pageUrl: stripQueryParams(data.pageUrl),
+      referrer: stripQueryParams(data.referrer),
       eventProperties: data.properties,
       sessionId: data.sessionId,
       visitorId: data.visitorId,
       userId: data.userId,
-      userAgent: data.userAgent,
+      // Raw userAgent intentionally NOT stored after parsing.
+      // Only coarse browser/device categories are persisted to minimise
+      // fingerprinting surface area (GDPR / privacy-by-design).
       browser,
       device,
       country: data.country,

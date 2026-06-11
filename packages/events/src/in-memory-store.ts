@@ -71,4 +71,17 @@ export class InMemoryEventStore implements EventStore {
       createdAt,
     }));
   }
+
+  async recoverStuck(olderThan: Date): Promise<number> {
+    let count = 0;
+    for (const event of this.events.values()) {
+      if (event.status === 'processing' && event.createdAt <= olderThan) {
+        event.status = 'pending';
+        // Clear transient processing state so the event can be retried cleanly
+        delete event.processedAt;
+        count += 1;
+      }
+    }
+    return count;
+  }
 }

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@rota-core/core": "workspace:*",
+    "@rota-core/db": "workspace:*",
     "@rota-core/events": "workspace:*",
     "@rota-core/logger": "workspace:*",
     "@rota-core/types": "workspace:*",
