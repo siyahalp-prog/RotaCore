@@ -114,7 +114,7 @@ pnpm install
 
 ### 3. Environment Variables
 
-Create a `.env` file in the `apps/api` directory using the provided example:
+Create a `.env` file in the root directory using the provided example:
 
 ```bash
 cp .env.example .env
