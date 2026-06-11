@@ -1,0 +1,32 @@
+{
+  "name": "rota-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared platform infrastructure for the Rota ecosystem: events, notifications, analytics, search, monitoring, feature flags, workflows and product integration tools.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@11.5.3",
+  "scripts": {
+    "build": "tsc --noEmit -p tsconfig.json",
+    "dev": "pnpm --filter @rota-core/api dev",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "clean": "node ./scripts/clean.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.2",
+    "eslint": "^10.4.1",
+    "prettier": "^3.8.4",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.0",
+    "vitest": "^4.1.8"
+  }
+}

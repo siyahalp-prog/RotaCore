@@ -1,0 +1,18 @@
+{
+  "name": "@rota-core/workflows",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@rota-core/core": "workspace:*",
+    "@rota-core/events": "workspace:*",
+    "@rota-core/logger": "workspace:*",
+    "@rota-core/types": "workspace:*",
+    "zod": "^4.4.3"
+  }
+}

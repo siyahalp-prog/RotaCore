@@ -1,0 +1,19 @@
+{
+  "name": "@rota-core/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "@rota-core/config": "workspace:*",
+    "@rota-core/core": "workspace:*",
+    "@rota-core/db": "workspace:*",
+    "@rota-core/logger": "workspace:*",
+    "@rota-core/sdk": "workspace:*",
+    "fastify": "^5.8.5",
+    "zod": "^4.4.3"
+  }
+}
